@@ -7,6 +7,7 @@
 #include "nt_ddk.h"
 #include "utils.h"
 
+// Alternate way of obtaining the thread start address
 unsigned __int64 GetThreadAddressById(DWORD threadId)
 {
 	HANDLE hThread = OpenThread(THREAD_QUERY_INFORMATION, false, threadId);
@@ -279,6 +280,7 @@ bool TerminateIntegrityCheckThread(HANDLE hProcess)
 		if (!thId)
 			continue;
 
+		/* The 'thread->StartAddress' start address is NOT the same! */
 		if (GetThreadAddressById(thId) == ((unsigned __int64)mainModule + 0x3C60))
 		{
 			_tprintf(_T("Thread found! Terminating!\n"));
