@@ -19,6 +19,7 @@ unsigned __int64 GetThreadAddressById(DWORD threadId)
 			
 	static HMODULE hNtDll = (HMODULE)Utils::GetLocalModuleHandle("ntdll.dll");
 	static tNtQueryInformationThread NtQueryInformationThread = (tNtQueryInformationThread)Utils::GetProcAddress(hNtDll, "NtQueryInformationThread");
+	
 	unsigned __int64 retAddress = 0;
 	NTSTATUS status = NtQueryInformationThread(hThread, ThreadQuerySetWin32StartAddress, &retAddress, sizeof(unsigned __int64), NULL);
 	if (!NT_SUCCESS(status))
@@ -221,7 +222,7 @@ bool TerminateIntegrityCheckThread(HANDLE hProcess)
 	bool terminated = false;
 	NTSTATUS status;
 	PVOID SystemProcessInfo;
-	ULONG bufferSize = 0x4000;
+	ULONG bufferSize = 0x10000;
 	HANDLE hHeap = GetProcessHeap();
 	DWORD ProcessId = GetProcessId(hProcess);
 
@@ -232,7 +233,7 @@ bool TerminateIntegrityCheckThread(HANDLE hProcess)
 
 	while (TRUE)
 	{
-		status = NtQuerySystemInformation(SystemProcessInformation, SystemProcessInfo, bufferSize, &bufferSize);
+		status = NtQuerySystemInformation(SystemExtendedProcessInformation, SystemProcessInfo, bufferSize, &bufferSize);
 		if (status == STATUS_BUFFER_TOO_SMALL || status == STATUS_INFO_LENGTH_MISMATCH)
 		{
 			if (SystemProcessInfo)
@@ -251,7 +252,7 @@ bool TerminateIntegrityCheckThread(HANDLE hProcess)
 	}
 
 	PSYSTEM_PROCESS_INFORMATION process;
-	PSYSTEM_THREAD_INFORMATION threads;
+	PSYSTEM_EXTENDED_THREAD_INFORMATION threads;
 	ULONG numberOfThreads;
 
 	process = PROCESS_INFORMATION_FIRST_PROCESS(SystemProcessInfo);
@@ -267,24 +268,24 @@ bool TerminateIntegrityCheckThread(HANDLE hProcess)
 	}
 
 	void* mainModule = GetRemoteModuleHandle(hProcess, "thedivision.exe", NULL);
+	_tprintf(_T("mainModule: 0x%IX\n"), (unsigned __int64)mainModule);
 	threads = process->Threads;
 	numberOfThreads = process->NumberOfThreads;
 
 	// Look for new threads and update existing ones.
 	for (ULONG i = 0; i < numberOfThreads; i++)
 	{
-		PSYSTEM_THREAD_INFORMATION thread = &threads[i];
+		PSYSTEM_EXTENDED_THREAD_INFORMATION thread = &threads[i];
 		if (!thread)
 			continue;
-		DWORD thId = (DWORD)thread->ClientId.UniqueThread;
+		DWORD thId = (DWORD)thread->ThreadInfo.ClientId.UniqueThread;
 		if (!thId)
 			continue;
-
-		/* The 'thread->StartAddress' start address is NOT the same! */
-		if (GetThreadAddressById(thId) == ((unsigned __int64)mainModule + 0x3C60))
+		
+		/* The 'thread->StartAddress' start address is NOT the same as 'thread->Win32StartAddress'! */
+		if ((unsigned __int64)thread->Win32StartAddress == ((unsigned __int64)mainModule + 0x3C60))
 		{
 			_tprintf(_T("Thread found! Terminating!\n"));
-
 			HANDLE hThread = OpenThread(THREAD_TERMINATE, FALSE, thId);
 			TerminateThread(hThread, 1);
 			_tprintf(_T("Thread %d (0x%X) terminated!\n"), thId, thId);
@@ -300,6 +301,14 @@ bool TerminateIntegrityCheckThread(HANDLE hProcess)
 	return terminated;
 }
 
+unsigned long __stdcall HackThread(LPVOID lpThreadParameter)
+{
+
+
+
+	return 1;
+}
+
 int main()
 {
 	_tprintf(_T("**** The Division Bypass ****\nby dude719\n\n"));
@@ -312,6 +321,7 @@ int main()
 		HANDLE hProcess = OpenProcess(PROCESS_CREATE_THREAD | PROCESS_QUERY_INFORMATION | PROCESS_VM_OPERATION | PROCESS_VM_WRITE | PROCESS_VM_READ, FALSE, (DWORD)pid);
 		if (hProcess)
 		{
+			_tprintf(_T("Entering TerminateIntegrityCheckThread\n"));
 			if (TerminateIntegrityCheckThread(hProcess))
 			{
 				_tprintf(_T("Successfully bypassed!\n"));
@@ -326,6 +336,10 @@ int main()
 	{
 		_tprintf(_T("Failed to find The Division process! \"thedivision.exe\" needs to be running first...\n"));
 	}
+
+
+	HANDLE threadHandle = Utils::NtCreateThreadEx(GetCurrentProcess(), (LPTHREAD_START_ROUTINE)HackThread, NULL, NULL);
+	_tprintf(_T("HackThread handle: 0x%X (%d)\n"), threadHandle, (DWORD)threadHandle);
 
 	getchar();
 
