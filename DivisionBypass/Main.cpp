@@ -304,8 +304,6 @@ bool TerminateIntegrityCheckThread(HANDLE hProcess)
 unsigned long __stdcall HackThread(LPVOID lpThreadParameter)
 {
 
-
-
 	return 1;
 }
 
@@ -337,9 +335,10 @@ int main()
 		_tprintf(_T("Failed to find The Division process! \"thedivision.exe\" needs to be running first...\n"));
 	}
 
-
+	#ifdef _DEBUG
 	HANDLE threadHandle = Utils::NtCreateThreadEx(GetCurrentProcess(), (LPTHREAD_START_ROUTINE)HackThread, NULL, NULL);
-	_tprintf(_T("HackThread handle: 0x%X (%d)\n"), threadHandle, (DWORD)threadHandle);
+	_tprintf(_T("HackThread handle: 0x%X (%d)\n"), (DWORD)threadHandle, (DWORD)threadHandle);
+	#endif
 
 	getchar();
 
