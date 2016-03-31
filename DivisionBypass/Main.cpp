@@ -145,7 +145,7 @@ HMODULE GetRemoteModuleHandle(HANDLE hProcess, const char* Module, ULONG* Module
 
 DWORD GetProcessIdByName(const char* process)
 {
-	ULONG cbBuffer = 131072;
+	ULONG cbBuffer = 0x20000;
 	void* pBuffer = NULL;
 	NTSTATUS Status = STATUS_INFO_LENGTH_MISMATCH;
 	void* hHeap = GetProcessHeap();
